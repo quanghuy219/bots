@@ -2,7 +2,6 @@ package trade
 
 import (
 	"context"
-	"errors"
 	"log"
 	"math/big"
 	"time"
