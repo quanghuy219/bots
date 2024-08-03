@@ -1,0 +1,6 @@
+chainId: 1
+nodeEndpoint: "https://rpc.flashbots.net/fast"
+gasPriceEndpoint: "https://gas-api.metaswap.codefi.network/networks/1"
+swapRouter: 0xE592427A0AEce92De3Edee1F18E0157C05861564
+tokenIn: "" # WETH
+tokenOut: "" # Goodle
