@@ -2,6 +2,7 @@ package trade
 
 import (
 	"context"
+	"errors"
 	"log"
 	"math/big"
 	"time"
@@ -42,23 +43,23 @@ func BuildTx(ethClient *ethclient.Client, gasPricer gasprice.GasPricer, fromAddr
 		SqrtPriceLimitX96: big.NewInt(0),
 	}
 
-	maxGasPriceGwei, gasTipCapGwei, err := gasPricer.GasPrice(context.Background())
-	if err != nil {
-		log.Printf("Fail to get gas price: error=%v", err)
-		return nil, err
-	}
-	maxGasPrice := convert.MustFloatToWei(maxGasPriceGwei, common.GweiDecimals)
-	gasTipCap := convert.MustFloatToWei(config.Cfg.GasTipMultiplier*gasTipCapGwei, common.GweiDecimals)
-
 	opts := &bind.TransactOpts{
-		NoSend:    true,
-		Value:     amountIn,
-		From:      fromAddress,
-		GasTipCap: gasTipCap,
-		GasFeeCap: maxGasPrice,
+		NoSend: true,
+		Value:  amountIn,
+		From:   fromAddress,
 		Signer: func(a etherCommon.Address, t *types.Transaction) (*types.Transaction, error) {
 			return t, nil
 		},
+	}
+
+	maxGasPriceGwei, gasTipCapGwei, err := gasPricer.GasPrice(context.Background())
+	if err != nil {
+		log.Printf("Fail to get gas price: error=%v", err)
+	} else {
+		maxGasPrice := convert.MustFloatToWei(maxGasPriceGwei, common.GweiDecimals)
+		gasTipCap := convert.MustFloatToWei(config.Cfg.GasTipMultiplier*gasTipCapGwei, common.GweiDecimals)
+		opts.GasTipCap = gasTipCap
+		opts.GasFeeCap = maxGasPrice
 	}
 
 	return swapRouter.ExactInputSingle(opts, params)
