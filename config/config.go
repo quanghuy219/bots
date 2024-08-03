@@ -10,14 +10,17 @@ import (
 var Cfg *Config
 
 type Config struct {
-	ChainId      int     `mapstructure:"chainId"`
-	NodeEndpoint string  `mapstructure:"nodeEndpoint"`
-	SwapRouter   string  `mapstructure:"swapRouter"`
-	Recipient    string  `mapstructure:"recipient"`
-	TokenIn      string  `mapstructure:"tokenIn"`
-	TokenOut     string  `mapstructure:"tokenOut"`
-	PoolFee      int     `mapstructure:"poolFee"`
-	AmountIn     float64 `mapstructure:"amountIn"`
+	ChainId          int     `mapstructure:"chainId"`
+	NodeEndpoint     string  `mapstructure:"nodeEndpoint"`
+	SwapRouter       string  `mapstructure:"swapRouter"`
+	StartTime        int64   `mapstructure:"startTime"`
+	GasPriceEndpoint string  `mapstructure:"gasPriceEndpoint"`
+	GasTipMultiplier float64 `mapstructure:"gasTipMultiplier"`
+	Recipient        string  `mapstructure:"recipient"`
+	TokenIn          string  `mapstructure:"tokenIn"`
+	TokenOut         string  `mapstructure:"tokenOut"`
+	PoolFee          int     `mapstructure:"poolFee"`
+	AmountIn         float64 `mapstructure:"amountIn"`
 }
 
 func InitConfig() {
