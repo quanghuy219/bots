@@ -31,6 +31,7 @@ func BuildTx(ethClient *ethclient.Client, gasPricer gasprice.GasPricer, fromAddr
 	}
 
 	amountIn := convert.MustFloatToWei(config.Cfg.AmountIn, 18)
+	minDestAmount := convert.MustFloatToWei(config.Cfg.MinDestAmount, 18)
 	params := contracts.ISwapRouterExactInputSingleParams{
 		TokenIn:           etherCommon.HexToAddress(config.Cfg.TokenIn),
 		TokenOut:          etherCommon.HexToAddress(config.Cfg.TokenOut),
@@ -38,17 +39,19 @@ func BuildTx(ethClient *ethclient.Client, gasPricer gasprice.GasPricer, fromAddr
 		Recipient:         recipient,
 		AmountIn:          amountIn,
 		Deadline:          big.NewInt(deadline.Unix()),
-		AmountOutMinimum:  big.NewInt(0),
+		AmountOutMinimum:  minDestAmount,
 		SqrtPriceLimitX96: big.NewInt(0),
 	}
 
 	opts := &bind.TransactOpts{
 		NoSend: true,
-		Value:  amountIn,
 		From:   fromAddress,
 		Signer: func(a etherCommon.Address, t *types.Transaction) (*types.Transaction, error) {
 			return t, nil
 		},
+	}
+	if config.Cfg.IsNative {
+		opts.Value = amountIn
 	}
 
 	maxGasPriceGwei, gasTipCapGwei, err := gasPricer.GasPrice(context.Background())

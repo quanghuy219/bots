@@ -21,6 +21,8 @@ type Config struct {
 	TokenOut         string  `mapstructure:"tokenOut"`
 	PoolFee          int     `mapstructure:"poolFee"`
 	AmountIn         float64 `mapstructure:"amountIn"`
+	IsNative         bool    `mapstructure:"isNative"`
+	MinDestAmount    float64 `mapstructure:"minDestAmount"`
 }
 
 func InitConfig() {
