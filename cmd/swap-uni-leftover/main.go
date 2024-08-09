@@ -129,6 +129,8 @@ func makeTrade(ethClient *ethclient.Client, gasPricer gasprice.GasPricer) error 
 		successAmountIn = pivotAmountIn
 		successMinDestAmount = pivotMinDestAmount
 
+		fmt.Printf("=== Got amount In %.5f\n", convert.WeiToFloat(successAmountIn, 18))
+
 		minAmountIn = pivotAmountIn
 		minDestMinAmount = pivotMinDestAmount
 	}
