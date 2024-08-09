@@ -49,6 +49,7 @@ func BuildTx(ethClient *ethclient.Client, gasPricer gasprice.GasPricer, fromAddr
 		Signer: func(a etherCommon.Address, t *types.Transaction) (*types.Transaction, error) {
 			return t, nil
 		},
+		GasLimit: 1, // to skip estimate gas step
 	}
 	if config.Cfg.IsNative {
 		opts.Value = amountIn
