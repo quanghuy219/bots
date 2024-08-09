@@ -8,7 +8,3 @@ tokenOut: "0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1" # DAI
 poolFee: 500
 recipient: ""
 amountIn: 0.00001
-isNative: true
-minDestAmount: 0
-leftoverMaxPercent: 0.15 #15% based on amountIn
-leftoverMinPercent: 0.001 #0.1% based on amountIn

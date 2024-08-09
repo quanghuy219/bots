@@ -68,20 +68,82 @@ func makeTrade(ethClient *ethclient.Client, gasPricer gasprice.GasPricer) error 
 		return err
 	}
 
-	amountIn := convert.MustFloatToWei(config.Cfg.AmountIn, 18)
-	minDestAmount := convert.MustFloatToWei(config.Cfg.MinDestAmount, 18)
-	tx, err := trade.BuildTx(ethClient, gasPricer, address, amountIn, minDestAmount)
-	if err != nil {
-		return err
+	maxPercent := 0.15
+	if config.Cfg.LeftoverMaxPercent > 0 {
+		maxPercent = config.Cfg.LeftoverMaxPercent
+	}
+	maxAmountIn := convert.MustFloatToWei(config.Cfg.AmountIn*maxPercent, 18)
+	minDestMaxAmount := convert.MustFloatToWei(config.Cfg.MinDestAmount*maxPercent, 18)
+
+	// 0.1%
+	minPercent := 0.001
+	minAmountIn := convert.MustFloatToWei(config.Cfg.AmountIn*minPercent, 18)
+	minDestMinAmount := convert.MustFloatToWei(config.Cfg.MinDestAmount*minPercent, 18)
+
+	var pivotAmountIn, pivotMinDestAmount *big.Int
+
+	var successAmountIn, successMinDestAmount *big.Int
+
+	maxTry := 10
+	if config.Cfg.MaxTry > 0 {
+		maxTry = config.Cfg.MaxTry
+	}
+
+	var successTx *types.Transaction
+	// Binary search, only work if enough balance + approval for swap amount + gas fee
+	for i := 0; i < maxTry; i++ {
+		pivotAmountIn = new(big.Int).Add(maxAmountIn, minAmountIn)
+		pivotAmountIn = new(big.Int).Quo(pivotAmountIn, big.NewInt(2))
+
+		pivotMinDestAmount = new(big.Int).Add(minDestMaxAmount, minDestMinAmount)
+		pivotMinDestAmount = new(big.Int).Quo(pivotMinDestAmount, big.NewInt(2))
+
+		tx, err := trade.BuildTx(ethClient, gasPricer, address, pivotAmountIn, pivotMinDestAmount)
+		// can not swap
+		if err != nil {
+			log.Printf("error buildTx: %v", err)
+			maxAmountIn = pivotAmountIn
+			minDestMaxAmount = pivotMinDestAmount
+			continue
+		}
+
+		_, err = ethClient.EstimateGas(context.Background(), ethereum.CallMsg{
+			From:  address,
+			To:    tx.To(),
+			Value: tx.Value(),
+			Data:  tx.Data(),
+		})
+
+		// can not swap
+		if err != nil {
+			log.Printf("error estimate gas: %v", err)
+			maxAmountIn = pivotAmountIn
+			minDestMaxAmount = pivotMinDestAmount
+			continue
+		}
+
+		successTx = tx
+		successAmountIn = pivotAmountIn
+		successMinDestAmount = pivotMinDestAmount
+
+		minAmountIn = pivotAmountIn
+		minDestMinAmount = pivotMinDestAmount
+	}
+
+	if successTx == nil {
+		return fmt.Errorf("=== Can not find leftover amount")
+	} else {
+		fmt.Printf("== Found swap option for amount in %.5f, minDestAmount: %.5f\n",
+			convert.WeiToFloat(successAmountIn, 18), convert.WeiToFloat(successMinDestAmount, 18))
 	}
 
 	var gasLimit uint64
 	for {
 		gasLimit, err = ethClient.EstimateGas(context.Background(), ethereum.CallMsg{
 			From:  address,
-			To:    tx.To(),
-			Value: tx.Value(),
-			Data:  tx.Data(),
+			To:    successTx.To(),
+			Value: successTx.Value(),
+			Data:  successTx.Data(),
 		})
 		if err != nil {
 			log.Printf("error estimate gas: %v", err)
@@ -101,12 +163,12 @@ func makeTrade(ethClient *ethclient.Client, gasPricer gasprice.GasPricer) error 
 	rawTx := &types.DynamicFeeTx{
 		ChainID:   big.NewInt(int64(config.Cfg.ChainId)),
 		Nonce:     nonce,
-		GasTipCap: tx.GasTipCap(),
-		GasFeeCap: tx.GasFeeCap(),
+		GasTipCap: successTx.GasTipCap(),
+		GasFeeCap: successTx.GasFeeCap(),
 		Gas:       bufferedGasLimit,
-		To:        tx.To(),
-		Value:     tx.Value(),
-		Data:      tx.Data(),
+		To:        successTx.To(),
+		Value:     successTx.Value(),
+		Data:      successTx.Data(),
 	}
 
 	signedTx, err := types.SignNewTx(prvKey, types.LatestSignerForChainID(big.NewInt(int64(config.Cfg.ChainId))), rawTx)
