@@ -77,6 +77,9 @@ func makeTrade(ethClient *ethclient.Client, gasPricer gasprice.GasPricer) error 
 
 	// 0.1%
 	minPercent := 0.001
+	if config.Cfg.LeftoverMinPercent > 0 {
+		minPercent = config.Cfg.LeftoverMinPercent
+	}
 	minAmountIn := convert.MustFloatToWei(config.Cfg.AmountIn*minPercent, 18)
 	minDestMinAmount := convert.MustFloatToWei(config.Cfg.MinDestAmount*minPercent, 18)
 
