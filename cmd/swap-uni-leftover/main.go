@@ -43,7 +43,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	fmt.Println("Done.")
+	log.Println("Done.")
 }
 
 func handle() error {
@@ -104,7 +104,7 @@ func makeTrade(ethClient *ethclient.Client, gasPricer gasprice.GasPricer) error 
 		diffThreshold = config.Cfg.DiffThreshold
 	}
 
-	fmt.Printf("=== Start finding leftover from %.2f to %.2f, diff threshold is %.10f, max try %d\n",
+	log.Printf("=== Start finding leftover from %.2f to %.2f, diff threshold is %.10f, max try %d\n",
 		maxPercent, minPercent, diffThreshold, maxTry,
 	)
 
@@ -116,7 +116,7 @@ func makeTrade(ethClient *ethclient.Client, gasPricer gasprice.GasPricer) error 
 		// if diff below threshold => break
 		diffAmountIn := new(big.Int).Sub(maxAmountIn, minAmountIn)
 		if diffAmountIn.Cmp(diffThresholdWei) < 0 {
-			fmt.Println("=== Diff is below threshold", diffThresholdWei, diffAmountIn)
+			log.Println("=== Diff is below threshold", diffThresholdWei, diffAmountIn)
 			break
 		}
 
@@ -126,7 +126,7 @@ func makeTrade(ethClient *ethclient.Client, gasPricer gasprice.GasPricer) error 
 		pivotMinDestAmount = new(big.Int).Add(minDestMaxAmount, minDestMinAmount)
 		pivotMinDestAmount = new(big.Int).Quo(pivotMinDestAmount, big.NewInt(2))
 
-		fmt.Println("== Trying", i, pivotAmountIn, pivotMinDestAmount)
+		log.Println("== Trying", i, pivotAmountIn, pivotMinDestAmount)
 		tx, err := trade.BuildTx(ethClient, gasPricer, address, pivotAmountIn, pivotMinDestAmount)
 		// can not swap
 		if err != nil {
@@ -155,7 +155,7 @@ func makeTrade(ethClient *ethclient.Client, gasPricer gasprice.GasPricer) error 
 		successAmountIn = pivotAmountIn
 		successMinDestAmount = pivotMinDestAmount
 
-		fmt.Printf("=== Got amount In %.5f\n", convert.WeiToFloat(successAmountIn, 18))
+		log.Printf("=== Got amount In %.8f\n", convert.WeiToFloat(successAmountIn, 18))
 
 		minAmountIn = pivotAmountIn
 		minDestMinAmount = pivotMinDestAmount
@@ -164,7 +164,7 @@ func makeTrade(ethClient *ethclient.Client, gasPricer gasprice.GasPricer) error 
 	if successTx == nil {
 		return fmt.Errorf("=== Can not find leftover amount")
 	} else {
-		fmt.Printf("== Found swap option for amount in %.5f, minDestAmount: %.5f\n",
+		log.Printf("== Found swap option for amount in %.5f, minDestAmount: %.5f\n",
 			convert.WeiToFloat(successAmountIn, 18), convert.WeiToFloat(successMinDestAmount, 18))
 	}
 
@@ -233,7 +233,7 @@ func makeTrade(ethClient *ethclient.Client, gasPricer gasprice.GasPricer) error 
 
 func getKey() (etherCommon.Address, *ecdsa.PrivateKey, error) {
 	privateKeyHex := os.Getenv("PRIVATE_KEY")
-	fmt.Println("=== KEY", privateKeyHex)
+	log.Println("=== KEY", privateKeyHex)
 	privateKey, err := crypto.HexToECDSA(privateKeyHex)
 	if err != nil {
 		return etherCommon.Address{}, nil, fmt.Errorf("failed to parse private key %w", err)
