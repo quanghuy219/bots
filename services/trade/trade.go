@@ -4,7 +4,6 @@ import (
 	"context"
 	"log"
 	"math/big"
-	"time"
 
 	"github.com/KyberNetwork/tradinglib/pkg/convert"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -19,23 +18,22 @@ import (
 )
 
 func BuildTx(ethClient *ethclient.Client, gasPricer gasprice.GasPricer, fromAddress etherCommon.Address, amountIn, minDestAmount *big.Int) (*types.Transaction, error) {
-	swapRouter, err := contracts.NewSwapRouterTransactor(etherCommon.HexToAddress(config.Cfg.SwapRouter), ethClient)
+	swapRouter, err := contracts.NewSwapRouter02Transactor(etherCommon.HexToAddress(config.Cfg.SwapRouter), ethClient)
 	if err != nil {
 		return nil, err
 	}
 
-	deadline := time.Now().Add(time.Hour)
 	recipient := fromAddress
 	if config.Cfg.Recipient != "" {
 		recipient = etherCommon.HexToAddress(config.Cfg.Recipient)
 	}
-	params := contracts.ISwapRouterExactInputSingleParams{
+
+	params := contracts.IV3SwapRouterExactInputSingleParams{
 		TokenIn:           etherCommon.HexToAddress(config.Cfg.TokenIn),
 		TokenOut:          etherCommon.HexToAddress(config.Cfg.TokenOut),
 		Fee:               big.NewInt(int64(config.Cfg.PoolFee)),
 		Recipient:         recipient,
 		AmountIn:          amountIn,
-		Deadline:          big.NewInt(deadline.Unix()),
 		AmountOutMinimum:  minDestAmount,
 		SqrtPriceLimitX96: big.NewInt(0),
 	}

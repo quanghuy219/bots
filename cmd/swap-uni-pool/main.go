@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/joho/godotenv"
 	"github.com/quanghuy219/bots/config"
 	"github.com/quanghuy219/bots/services/gasprice"
 	"github.com/quanghuy219/bots/services/trade"
@@ -29,14 +30,20 @@ const (
 )
 
 func main() {
+	envFile := "config/.env"
+	err := godotenv.Load(envFile)
+	if err != nil {
+		log.Printf("Error loading .env file from path %s, err %v", envFile, err)
+	}
+
 	config.InitConfig()
 
-	err := handle()
+	err = handle()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	fmt.Println("Done.")
+	log.Println("Done.")
 }
 
 func handle() error {
