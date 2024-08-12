@@ -26,6 +26,7 @@ type Config struct {
 	LeftoverMaxPercent float64 `mapstructure:"leftoverMaxPercent"`
 	LeftoverMinPercent float64 `mapstructure:"leftoverMinPercent"`
 	MaxTry             int     `mapstructure:"maxTry"`
+	DiffThreshold      float64 `mapstructure:"diffThreshold"`
 }
 
 func InitConfig() {

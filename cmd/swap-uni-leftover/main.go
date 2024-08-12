@@ -92,9 +92,23 @@ func makeTrade(ethClient *ethclient.Client, gasPricer gasprice.GasPricer) error 
 		maxTry = config.Cfg.MaxTry
 	}
 
+	diffThreshold := 0.0000001
+	if config.Cfg.DiffThreshold > 0 {
+		diffThreshold = config.Cfg.DiffThreshold
+	}
+
+	diffThresholdWei := convert.MustFloatToWei(diffThreshold, 18)
+
 	var successTx *types.Transaction
 	// Binary search, only work if enough balance + approval for swap amount + gas fee
 	for i := 0; i < maxTry; i++ {
+		// if diff below threshold => break
+		diffAmountIn := new(big.Int).Sub(maxAmountIn, minAmountIn)
+		if diffAmountIn.Cmp(diffThresholdWei) < 0 {
+			fmt.Println("=== Diff is below threshold", diffThresholdWei, diffAmountIn)
+			break
+		}
+
 		pivotAmountIn = new(big.Int).Add(maxAmountIn, minAmountIn)
 		pivotAmountIn = new(big.Int).Quo(pivotAmountIn, big.NewInt(2))
 
