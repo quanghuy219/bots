@@ -104,7 +104,7 @@ func makeTrade(ethClient *ethclient.Client, gasPricer gasprice.GasPricer) error 
 		diffThreshold = config.Cfg.DiffThreshold
 	}
 
-	log.Printf("=== Start finding leftover from %.2f to %.2f, diff threshold is %.10f, max try %d\n",
+	log.Printf("Start finding leftover from %.2f to %.2f, diff threshold is %.10f, max try %d\n",
 		maxPercent, minPercent, diffThreshold, maxTry,
 	)
 
@@ -116,7 +116,7 @@ func makeTrade(ethClient *ethclient.Client, gasPricer gasprice.GasPricer) error 
 		// if diff below threshold => break
 		diffAmountIn := new(big.Int).Sub(maxAmountIn, minAmountIn)
 		if diffAmountIn.Cmp(diffThresholdWei) < 0 {
-			log.Println("=== Diff is below threshold", diffThresholdWei, diffAmountIn)
+			log.Println("Diff is below threshold", diffThresholdWei, diffAmountIn)
 			break
 		}
 
@@ -126,7 +126,7 @@ func makeTrade(ethClient *ethclient.Client, gasPricer gasprice.GasPricer) error 
 		pivotMinDestAmount = new(big.Int).Add(minDestMaxAmount, minDestMinAmount)
 		pivotMinDestAmount = new(big.Int).Quo(pivotMinDestAmount, big.NewInt(2))
 
-		log.Println("== Trying", i, pivotAmountIn, pivotMinDestAmount)
+		log.Println("Trying", i, pivotAmountIn, pivotMinDestAmount)
 		tx, err := trade.BuildTx(ethClient, gasPricer, address, pivotAmountIn, pivotMinDestAmount)
 		// can not swap
 		if err != nil {
@@ -155,16 +155,16 @@ func makeTrade(ethClient *ethclient.Client, gasPricer gasprice.GasPricer) error 
 		successAmountIn = pivotAmountIn
 		successMinDestAmount = pivotMinDestAmount
 
-		log.Printf("=== Got amount In %.8f\n", convert.WeiToFloat(successAmountIn, 18))
+		log.Printf("Got amount In %.8f\n", convert.WeiToFloat(successAmountIn, 18))
 
 		minAmountIn = pivotAmountIn
 		minDestMinAmount = pivotMinDestAmount
 	}
 
 	if successTx == nil {
-		return fmt.Errorf("=== Can not find leftover amount")
+		return fmt.Errorf("Can not find leftover amount")
 	} else {
-		log.Printf("== Found swap option for amount in %.8f, minDestAmount: %.8f\n",
+		log.Printf("Found swap option for amount in %.8f, minDestAmount: %.8f\n",
 			convert.WeiToFloat(successAmountIn, 18), convert.WeiToFloat(successMinDestAmount, 18))
 	}
 
