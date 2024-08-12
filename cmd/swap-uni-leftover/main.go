@@ -233,7 +233,6 @@ func makeTrade(ethClient *ethclient.Client, gasPricer gasprice.GasPricer) error 
 
 func getKey() (etherCommon.Address, *ecdsa.PrivateKey, error) {
 	privateKeyHex := os.Getenv("PRIVATE_KEY")
-	log.Println("=== KEY", privateKeyHex)
 	privateKey, err := crypto.HexToECDSA(privateKeyHex)
 	if err != nil {
 		return etherCommon.Address{}, nil, fmt.Errorf("failed to parse private key %w", err)
