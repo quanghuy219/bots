@@ -17,7 +17,7 @@ import (
 	etherCommon "github.com/ethereum/go-ethereum/common"
 )
 
-func BuildTx(ethClient *ethclient.Client, gasPricer gasprice.GasPricer, fromAddress etherCommon.Address) (*types.Transaction, error) {
+func BuildTx(ethClient *ethclient.Client, gasPricer gasprice.GasPricer, fromAddress etherCommon.Address, amountIn, minDestAmount *big.Int) (*types.Transaction, error) {
 	swapRouter, err := contracts.NewSwapRouter02Transactor(etherCommon.HexToAddress(config.Cfg.SwapRouter), ethClient)
 	if err != nil {
 		return nil, err
@@ -28,8 +28,6 @@ func BuildTx(ethClient *ethclient.Client, gasPricer gasprice.GasPricer, fromAddr
 		recipient = etherCommon.HexToAddress(config.Cfg.Recipient)
 	}
 
-	amountIn := convert.MustFloatToWei(config.Cfg.AmountIn, 18)
-	minDestAmount := convert.MustFloatToWei(config.Cfg.MinDestAmount, 18)
 	params := contracts.IV3SwapRouterExactInputSingleParams{
 		TokenIn:           etherCommon.HexToAddress(config.Cfg.TokenIn),
 		TokenOut:          etherCommon.HexToAddress(config.Cfg.TokenOut),

@@ -75,20 +75,106 @@ func makeTrade(ethClient *ethclient.Client, gasPricer gasprice.GasPricer) error 
 		return err
 	}
 
-	amountIn := convert.MustFloatToWei(config.Cfg.AmountIn, 18)
-	minDestAmount := convert.MustFloatToWei(config.Cfg.MinDestAmount, 18)
-	tx, err := trade.BuildTx(ethClient, gasPricer, address, amountIn, minDestAmount)
-	if err != nil {
-		return err
+	maxPercent := 0.15
+	if config.Cfg.LeftoverMaxPercent > 0 {
+		maxPercent = config.Cfg.LeftoverMaxPercent
+	}
+	maxAmountIn := convert.MustFloatToWei(config.Cfg.AmountIn*maxPercent, 18)
+	minDestMaxAmount := convert.MustFloatToWei(config.Cfg.MinDestAmount*maxPercent, 18)
+
+	// 0.1%
+	minPercent := 0.001
+	if config.Cfg.LeftoverMinPercent > 0 {
+		minPercent = config.Cfg.LeftoverMinPercent
+	}
+	minAmountIn := convert.MustFloatToWei(config.Cfg.AmountIn*minPercent, 18)
+	minDestMinAmount := convert.MustFloatToWei(config.Cfg.MinDestAmount*minPercent, 18)
+
+	var pivotAmountIn, pivotMinDestAmount *big.Int
+
+	var successAmountIn, successMinDestAmount *big.Int
+
+	maxTry := 10
+	if config.Cfg.MaxTry > 0 {
+		maxTry = config.Cfg.MaxTry
+	}
+
+	diffThreshold := 0.0000001
+	if config.Cfg.DiffThreshold > 0 {
+		diffThreshold = config.Cfg.DiffThreshold
+	}
+
+	log.Printf("Start finding leftover from %.2f to %.2f, diff threshold is %.10f, max try %d\n",
+		maxPercent, minPercent, diffThreshold, maxTry,
+	)
+
+	diffThresholdWei := convert.MustFloatToWei(diffThreshold, 18)
+
+	var successTx *types.Transaction
+	// Binary search, only work if enough balance + approval for swap amount + gas fee
+	for i := 0; i < maxTry; i++ {
+		// if diff below threshold => break
+		diffAmountIn := new(big.Int).Sub(maxAmountIn, minAmountIn)
+		if diffAmountIn.Cmp(diffThresholdWei) < 0 {
+			log.Println("Diff is below threshold", diffThresholdWei, diffAmountIn)
+			break
+		}
+
+		pivotAmountIn = new(big.Int).Add(maxAmountIn, minAmountIn)
+		pivotAmountIn = new(big.Int).Quo(pivotAmountIn, big.NewInt(2))
+
+		pivotMinDestAmount = new(big.Int).Add(minDestMaxAmount, minDestMinAmount)
+		pivotMinDestAmount = new(big.Int).Quo(pivotMinDestAmount, big.NewInt(2))
+
+		log.Println("Trying", i, pivotAmountIn, pivotMinDestAmount)
+		tx, err := trade.BuildTx(ethClient, gasPricer, address, pivotAmountIn, pivotMinDestAmount)
+		// can not swap
+		if err != nil {
+			log.Printf("error buildTx: %v", err)
+			maxAmountIn = pivotAmountIn
+			minDestMaxAmount = pivotMinDestAmount
+			continue
+		}
+
+		_, err = ethClient.EstimateGas(context.Background(), ethereum.CallMsg{
+			From:  address,
+			To:    tx.To(),
+			Value: tx.Value(),
+			Data:  tx.Data(),
+		})
+
+		// can not swap
+		if err != nil {
+			log.Printf("error estimate gas: %v", err)
+			maxAmountIn = pivotAmountIn
+			minDestMaxAmount = pivotMinDestAmount
+			continue
+		}
+
+		successTx = tx
+		successAmountIn = pivotAmountIn
+		successMinDestAmount = pivotMinDestAmount
+
+		log.Printf("Got amount In %.8f\n", convert.WeiToFloat(successAmountIn, 18))
+
+		minAmountIn = pivotAmountIn
+		minDestMinAmount = pivotMinDestAmount
+	}
+
+	if successTx == nil {
+		return fmt.Errorf("Can not find leftover amount")
+	} else {
+		log.Printf("Found swap option for amount in %.8f, minDestAmount: %.8f\n",
+			convert.WeiToFloat(successAmountIn, 18), convert.WeiToFloat(successMinDestAmount, 18))
 	}
 
 	var gasLimit uint64
 	for {
 		gasLimit, err = ethClient.EstimateGas(context.Background(), ethereum.CallMsg{
 			From:  address,
-			To:    tx.To(),
-			Value: tx.Value(),
-			Data:  tx.Data(),
+			To:    successTx.To(),
+			Value: successTx.Value(),
+			Data:  successTx.Data(),
 		})
 		if err != nil {
 			log.Printf("error estimate gas: %v", err)
@@ -108,12 +194,12 @@ func makeTrade(ethClient *ethclient.Client, gasPricer gasprice.GasPricer) error 
 	rawTx := &types.DynamicFeeTx{
 		ChainID:   big.NewInt(int64(config.Cfg.ChainId)),
 		Nonce:     nonce,
-		GasTipCap: tx.GasTipCap(),
-		GasFeeCap: tx.GasFeeCap(),
+		GasTipCap: successTx.GasTipCap(),
+		GasFeeCap: successTx.GasFeeCap(),
 		Gas:       bufferedGasLimit,
-		To:        tx.To(),
-		Value:     tx.Value(),
-		Data:      tx.Data(),
+		To:        successTx.To(),
+		Value:     successTx.Value(),
+		Data:      successTx.Data(),
 	}
 
 	signedTx, err := types.SignNewTx(prvKey, types.LatestSignerForChainID(big.NewInt(int64(config.Cfg.ChainId))), rawTx)
@@ -121,7 +207,7 @@ func makeTrade(ethClient *ethclient.Client, gasPricer gasprice.GasPricer) error 
 		return err
 	}
 
-	log.Printf("Submit transaction: inputAmount=%v\ntransactionHash=%v", config.Cfg.AmountIn, signedTx.Hash())
+	log.Printf("Submit transaction: inputAmount=%v\ntransactionHash=%v", successAmountIn, signedTx.Hash())
 	err = ethClient.SendTransaction(context.Background(), signedTx)
 	if err != nil {
 		log.Printf("error send transaction %v", err)
@@ -140,7 +226,7 @@ func makeTrade(ethClient *ethclient.Client, gasPricer gasprice.GasPricer) error 
 		return errors.New("transaction failed")
 	}
 
-	log.Printf("Successfully submit transaction: inputAmount=%v transactionHash=%v", config.Cfg.AmountIn, signedTx.Hash())
+	log.Printf("Successfully submit transaction: inputAmount=%v transactionHash=%v", successAmountIn, signedTx.Hash())
 
 	return nil
 }
