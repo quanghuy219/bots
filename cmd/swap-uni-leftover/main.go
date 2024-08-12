@@ -164,7 +164,7 @@ func makeTrade(ethClient *ethclient.Client, gasPricer gasprice.GasPricer) error 
 	if successTx == nil {
 		return fmt.Errorf("=== Can not find leftover amount")
 	} else {
-		log.Printf("== Found swap option for amount in %.5f, minDestAmount: %.5f\n",
+		log.Printf("== Found swap option for amount in %.8f, minDestAmount: %.8f\n",
 			convert.WeiToFloat(successAmountIn, 18), convert.WeiToFloat(successMinDestAmount, 18))
 	}
 
