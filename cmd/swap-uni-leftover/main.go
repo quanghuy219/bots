@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/joho/godotenv"
 	"github.com/quanghuy219/bots/config"
 	"github.com/quanghuy219/bots/services/gasprice"
 	"github.com/quanghuy219/bots/services/trade"
@@ -29,9 +30,15 @@ const (
 )
 
 func main() {
+	envFile := "config/.env"
+	err := godotenv.Load(envFile)
+	if err != nil {
+		log.Printf("Error loading .env file from path %s, err %v", envFile, err)
+	}
+
 	config.InitConfig()
 
-	err := handle()
+	err = handle()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -97,6 +104,10 @@ func makeTrade(ethClient *ethclient.Client, gasPricer gasprice.GasPricer) error 
 		diffThreshold = config.Cfg.DiffThreshold
 	}
 
+	fmt.Printf("=== Start finding leftover from %.2f to %.2f, diff threshold is %.10f, max try %d\n",
+		maxPercent, minPercent, diffThreshold, maxTry,
+	)
+
 	diffThresholdWei := convert.MustFloatToWei(diffThreshold, 18)
 
 	var successTx *types.Transaction
@@ -115,6 +126,7 @@ func makeTrade(ethClient *ethclient.Client, gasPricer gasprice.GasPricer) error 
 		pivotMinDestAmount = new(big.Int).Add(minDestMaxAmount, minDestMinAmount)
 		pivotMinDestAmount = new(big.Int).Quo(pivotMinDestAmount, big.NewInt(2))
 
+		fmt.Println("== Trying", i, pivotAmountIn, pivotMinDestAmount)
 		tx, err := trade.BuildTx(ethClient, gasPricer, address, pivotAmountIn, pivotMinDestAmount)
 		// can not swap
 		if err != nil {
@@ -195,7 +207,7 @@ func makeTrade(ethClient *ethclient.Client, gasPricer gasprice.GasPricer) error 
 		return err
 	}
 
-	log.Printf("Submit transaction: inputAmount=%v\ntransactionHash=%v", config.Cfg.AmountIn, signedTx.Hash())
+	log.Printf("Submit transaction: inputAmount=%v\ntransactionHash=%v", successAmountIn, signedTx.Hash())
 	err = ethClient.SendTransaction(context.Background(), signedTx)
 	if err != nil {
 		log.Printf("error send transaction %v", err)
@@ -214,13 +226,14 @@ func makeTrade(ethClient *ethclient.Client, gasPricer gasprice.GasPricer) error 
 		return errors.New("transaction failed")
 	}
 
-	log.Printf("Successfully submit transaction: inputAmount=%v transactionHash=%v", config.Cfg.AmountIn, signedTx.Hash())
+	log.Printf("Successfully submit transaction: inputAmount=%v transactionHash=%v", successAmountIn, signedTx.Hash())
 
 	return nil
 }
 
 func getKey() (etherCommon.Address, *ecdsa.PrivateKey, error) {
 	privateKeyHex := os.Getenv("PRIVATE_KEY")
+	fmt.Println("=== KEY", privateKeyHex)
 	privateKey, err := crypto.HexToECDSA(privateKeyHex)
 	if err != nil {
 		return etherCommon.Address{}, nil, fmt.Errorf("failed to parse private key %w", err)
