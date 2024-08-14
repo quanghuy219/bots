@@ -89,6 +89,11 @@ func makeTrade(ethClient *ethclient.Client, gasPricer gasprice.GasPricer) error 
 		return err
 	}
 
+	nonce, err := ethClient.PendingNonceAt(context.Background(), address)
+	if err != nil {
+		return err
+	}
+
 	tx, err := buildTx(ethClient, address, amountIn, gasPricer)
 	if err != nil {
 		return err
@@ -109,11 +114,6 @@ func makeTrade(ethClient *ethclient.Client, gasPricer gasprice.GasPricer) error 
 		} else {
 			break
 		}
-	}
-
-	nonce, err := ethClient.PendingNonceAt(context.Background(), address)
-	if err != nil {
-		return err
 	}
 
 	bufferedGasLimit := uint64(float64(gasLimit) * bufferGasLimit)
