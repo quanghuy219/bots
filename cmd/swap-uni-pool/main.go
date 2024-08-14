@@ -23,10 +23,10 @@ import (
 )
 
 const (
-	bufferGasLimit          = 1.1
-	timeWaitForTx           = 10 * time.Second
-	timeCoolDownWaitForTx   = time.Second
-	timeCoolDownEstimateGas = time.Second
+	bufferGasLimit                = 1.1
+	timeWaitForTx                 = 10 * time.Second
+	timeCoolDownWaitForTx         = time.Second
+	timeCoolDownEstimateGas int64 = 0
 )
 
 func main() {
@@ -75,6 +75,11 @@ func makeTrade(ethClient *ethclient.Client, gasPricer gasprice.GasPricer) error 
 		return err
 	}
 
+	nonce, err := ethClient.PendingNonceAt(context.Background(), address)
+	if err != nil {
+		return err
+	}
+
 	amountIn := convert.MustFloatToWei(config.Cfg.AmountIn, 18)
 	minDestAmount := convert.MustFloatToWei(config.Cfg.MinDestAmount, 18)
 	tx, err := trade.BuildTx(ethClient, gasPricer, address, amountIn, minDestAmount)
@@ -92,16 +97,13 @@ func makeTrade(ethClient *ethclient.Client, gasPricer gasprice.GasPricer) error 
 		})
 		if err != nil {
 			log.Printf("error estimate gas: %v", err)
-			time.Sleep(timeCoolDownEstimateGas)
+			if timeCoolDownEstimateGas > 0 {
+				time.Sleep(time.Duration(timeCoolDownEstimateGas) * time.Second)
+			}
 			continue
-		} else {
-			break
 		}
-	}
 
-	nonce, err := ethClient.PendingNonceAt(context.Background(), address)
-	if err != nil {
-		return err
+		break
 	}
 
 	bufferedGasLimit := uint64(float64(gasLimit) * bufferGasLimit)

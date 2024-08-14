@@ -26,7 +26,7 @@ const (
 	bufferGasLimit          = 1.1
 	timeWaitForTx           = 10 * time.Second
 	timeCoolDownWaitForTx   = time.Second
-	timeCoolDownEstimateGas = time.Second
+	timeCoolDownEstimateGas = 0
 )
 
 func main() {
@@ -71,6 +71,11 @@ func handle() error {
 
 func makeTrade(ethClient *ethclient.Client, gasPricer gasprice.GasPricer) error {
 	address, prvKey, err := getKey()
+	if err != nil {
+		return err
+	}
+
+	nonce, err := ethClient.PendingNonceAt(context.Background(), address)
 	if err != nil {
 		return err
 	}
@@ -162,7 +167,7 @@ func makeTrade(ethClient *ethclient.Client, gasPricer gasprice.GasPricer) error 
 	}
 
 	if successTx == nil {
-		return fmt.Errorf("Can not find leftover amount")
+		return fmt.Errorf("can not find leftover amount")
 	} else {
 		log.Printf("Found swap option for amount in %.8f, minDestAmount: %.8f\n",
 			convert.WeiToFloat(successAmountIn, 18), convert.WeiToFloat(successMinDestAmount, 18))
@@ -178,16 +183,14 @@ func makeTrade(ethClient *ethclient.Client, gasPricer gasprice.GasPricer) error 
 		})
 		if err != nil {
 			log.Printf("error estimate gas: %v", err)
-			time.Sleep(timeCoolDownEstimateGas)
-			continue
-		} else {
-			break
-		}
-	}
+			if timeCoolDownEstimateGas > 0 {
+				time.Sleep(timeCoolDownEstimateGas * time.Second)
+			}
 
-	nonce, err := ethClient.PendingNonceAt(context.Background(), address)
-	if err != nil {
-		return err
+			continue
+		}
+
+		break
 	}
 
 	bufferedGasLimit := uint64(float64(gasLimit) * bufferGasLimit)
