@@ -82,7 +82,14 @@ func makeTrade(ethClient *ethclient.Client, gasPricer gasprice.GasPricer) error 
 		return err
 	}
 
-	tx, err := buildTx(ethClient, address, gasPricer)
+	weweContract, _ := contracts.NewWeweCaller(weweAddress, ethClient)
+	amountIn, err := weweContract.BalanceOf(nil, address)
+	if err != nil {
+		log.Printf("err get balance %v", err)
+		return err
+	}
+
+	tx, err := buildTx(ethClient, address, amountIn, gasPricer)
 	if err != nil {
 		return err
 	}
@@ -150,14 +157,12 @@ func makeTrade(ethClient *ethclient.Client, gasPricer gasprice.GasPricer) error 
 	return nil
 }
 
-func buildTx(ethClient *ethclient.Client, sender etherCommon.Address, gasPricer gasprice.GasPricer) (*types.Transaction, error) {
-	weweContract, _ := contracts.NewWeweCaller(weweAddress, ethClient)
-
-	amountIn, err := weweContract.BalanceOf(nil, sender)
-	if err != nil {
-		return nil, err
-	}
-
+func buildTx(
+	ethClient *ethclient.Client,
+	sender etherCommon.Address,
+	amountIn *big.Int,
+	gasPricer gasprice.GasPricer,
+) (*types.Transaction, error) {
 	weweCaller, _ := contracts.NewWeweTransactor(weweAddress, ethClient)
 	opts := &bind.TransactOpts{
 		From: sender,
