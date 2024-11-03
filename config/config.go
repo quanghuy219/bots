@@ -18,7 +18,9 @@ type Config struct {
 	GasTipMultiplier   float64 `mapstructure:"gasTipMultiplier"`
 	Recipient          string  `mapstructure:"recipient"`
 	TokenIn            string  `mapstructure:"tokenIn"`
+	TokenInDecimals    int64   `mapstructure:"tokenInDecimals"`
 	TokenOut           string  `mapstructure:"tokenOut"`
+	TokenOutDecimals   int64   `mapstructure:"tokenOutDecimals"`
 	PoolFee            int     `mapstructure:"poolFee"`
 	AmountIn           float64 `mapstructure:"amountIn"`
 	IsNative           bool    `mapstructure:"isNative"`
