@@ -58,7 +58,12 @@ func main() {
 	}
 	cacheGasPricer := gasprice.NewCacheGasPricer(metamaskGasPricer, time.Second)
 
-	tx, err := buildSwapTx(publicKey, amountIn, minDestAmount, cacheGasPricer)
+	recipient := publicKey
+	if config.Cfg.Recipient != "" {
+		recipient = etherCommon.HexToAddress(config.Cfg.Recipient)
+	}
+
+	tx, err := buildSwapTx(recipient, amountIn, minDestAmount, cacheGasPricer)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -93,7 +98,7 @@ type TxObject struct {
 	Data  hexutil.Bytes       `json:"data"`
 }
 
-func getBuildSwapTx(userAddress etherCommon.Address, amountIn *big.Int, minDestAmount *big.Int) (*TxObject, error) {
+func getBuildSwapTx(recipient etherCommon.Address, amountIn *big.Int, minDestAmount *big.Int) (*TxObject, error) {
 	headers := map[string]string{
 		"accept": "application/json",
 	}
@@ -104,7 +109,7 @@ func getBuildSwapTx(userAddress etherCommon.Address, amountIn *big.Int, minDestA
 		"dest":          config.Cfg.TokenOut,
 		"srcAmount":     amountIn.String(),
 		"minDestAmount": minDestAmount.String(),
-		"userAddress":   userAddress.String(),
+		"userAddress":   recipient.String(),
 	}
 	var resp BuildTxOutput
 	err := common.MakeGetRequest(API_URL, headers, queryParams, 30*time.Second, &resp)
@@ -159,12 +164,6 @@ func executeTx(ethClient *ethclient.Client, tx *types.DynamicFeeTx, address ethe
 
 	tx.Nonce = nonce
 
-	signer := types.LatestSignerForChainID(chainID)
-	signedTx, err := types.SignTx(types.NewTx(tx), signer, prvKey)
-	if err != nil {
-		return err
-	}
-
 	var gasLimit uint64
 	for {
 		gasLimit, err = ethClient.EstimateGas(context.Background(), ethereum.CallMsg{
@@ -186,6 +185,12 @@ func executeTx(ethClient *ethclient.Client, tx *types.DynamicFeeTx, address ethe
 
 	bufferedGasLimit := uint64(float64(gasLimit) * bufferGasLimit)
 	tx.Gas = bufferedGasLimit
+
+	signer := types.LatestSignerForChainID(chainID)
+	signedTx, err := types.SignTx(types.NewTx(tx), signer, prvKey)
+	if err != nil {
+		return err
+	}
 
 	// Send transaction
 	err = ethClient.SendTransaction(context.Background(), signedTx)
