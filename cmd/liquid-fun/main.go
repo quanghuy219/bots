@@ -73,7 +73,6 @@ func listenEvent() error {
 
 	fmt.Printf("listening new token from contract %s\n", config.Cfg.LiquidFunFactory)
 
-listenLoop:
 	for {
 		select {
 		case event := <-ch:
@@ -82,19 +81,19 @@ listenLoop:
 			fmt.Printf("Token address: %s\n", event.Token.String())
 			if waitForUserInput() {
 				config.Cfg.TokenOut = event.Token.String()
-				logInput()
+
+				fmt.Println("buy token: ", config.Cfg.TokenOut)
 				err := buy()
 				if err != nil {
 					return err
 				}
 
-				break listenLoop
+				continue
 			}
 		case err := <-sub.Err():
 			return err
 		}
 	}
-	return nil
 }
 
 func waitForUserInput() bool {
@@ -103,10 +102,6 @@ func waitForUserInput() bool {
 	input.Scan()
 	fmt.Println(input.Text())
 	return input.Text() == "y"
-}
-
-func logInput() {
-	fmt.Println(config.Cfg.TokenOut)
 }
 
 func buy() error {
