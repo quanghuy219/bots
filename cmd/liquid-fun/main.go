@@ -97,7 +97,7 @@ listenLoop:
 }
 
 func waitForUserInput() bool {
-	fmt.Print("insert y value here: ")
+	fmt.Print("Buy now (y/n)?:")
 	input := bufio.NewScanner(os.Stdin)
 	input.Scan()
 	fmt.Println(input.Text())
