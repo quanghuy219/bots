@@ -78,6 +78,7 @@ listenLoop:
 		select {
 		case event := <-ch:
 			fmt.Println("Token name: ", event.Name)
+			fmt.Println("Token symbol: ", event.Symbol)
 			fmt.Printf("Token address: %s\n", event.Token.String())
 			if waitForUserInput() {
 				config.Cfg.TokenOut = event.Token.String()
