@@ -12,6 +12,7 @@ var Cfg *Config
 type Config struct {
 	ChainId            int     `mapstructure:"chainId"`
 	NodeEndpoint       string  `mapstructure:"nodeEndpoint"`
+	WssEndpoint        string  `mapstructure:"wssEndpoint"`
 	SwapRouter         string  `mapstructure:"swapRouter"`
 	StartTime          int64   `mapstructure:"startTime"`
 	GasPriceEndpoint   string  `mapstructure:"gasPriceEndpoint"`
@@ -29,6 +30,9 @@ type Config struct {
 	LeftoverMinPercent float64 `mapstructure:"leftoverMinPercent"`
 	MaxTry             int     `mapstructure:"maxTry"`
 	DiffThreshold      float64 `mapstructure:"diffThreshold"`
+
+	LiquidFunFactory string `mapstructure:"liquidFunFactory"`
+	LiquidFunApiUrl  string `mapstructure:"liquidFunApiUrl"`
 }
 
 func InitConfig() {
