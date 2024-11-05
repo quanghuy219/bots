@@ -1,18 +1,21 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
 	"log"
 	"math/big"
+	"os"
 	"time"
 
 	"github.com/KyberNetwork/tradinglib/pkg/convert"
 	"github.com/joho/godotenv"
 	"github.com/quanghuy219/bots/common"
 	"github.com/quanghuy219/bots/config"
+	liquid_fun_contracts "github.com/quanghuy219/bots/libs/contracts/liquid-fun"
 	"github.com/quanghuy219/bots/services/gasprice"
 
 	"github.com/ethereum/go-ethereum"
@@ -23,10 +26,12 @@ import (
 )
 
 const (
-	API_URL                       = "https://api-test.liquid.fun/v1/swap/buildSwapTx"
-	timeCoolDownEstimateGas int64 = 0
-	bufferGasLimit                = 1.1
+	timeCoolDownEstimateGas = 0
+	bufferGasLimit          = 1.1
 )
+
+var ethClient *ethclient.Client
+var wssClient *ethclient.Client
 
 func main() {
 	envFile := "config/.env"
@@ -36,15 +41,77 @@ func main() {
 	}
 
 	config.InitConfig()
-
-	ethClient, err := ethclient.Dial(config.Cfg.NodeEndpoint)
+	ethClient, err = ethclient.Dial(config.Cfg.NodeEndpoint)
 	if err != nil {
 		log.Fatal("Fail to create ethclient: ", err)
 	}
+	wssClient, err = ethclient.Dial(config.Cfg.WssEndpoint)
+	if err != nil {
+		log.Fatal("Fail to create wss client: ", err)
+	}
 
+	err = listenEvent()
+	if err != nil {
+		log.Fatal("Fail to listen event: ", err)
+	}
+}
+
+func listenEvent() error {
+	factory := etherCommon.HexToAddress(config.Cfg.LiquidFunFactory)
+	contract, err := liquid_fun_contracts.NewLiquidFunFactoryFilterer(factory, wssClient)
+	if err != nil {
+		return err
+	}
+
+	ch := make(chan *liquid_fun_contracts.LiquidFunFactoryBlueChipMemeLaunched)
+	sub, err := contract.WatchBlueChipMemeLaunched(nil, ch, nil, nil)
+	if err != nil {
+		return err
+	}
+
+	defer sub.Unsubscribe()
+
+	fmt.Printf("listening new token from contract %s\n", config.Cfg.LiquidFunFactory)
+
+listenLoop:
+	for {
+		select {
+		case event := <-ch:
+			fmt.Println("Token name: ", event.Name)
+			fmt.Printf("Token address: %s\n", event.Token.String())
+			if waitForUserInput() {
+				config.Cfg.TokenOut = event.Token.String()
+				logInput()
+				err := buy()
+				if err != nil {
+					return err
+				}
+
+				break listenLoop
+			}
+		case err := <-sub.Err():
+			return err
+		}
+	}
+	return nil
+}
+
+func waitForUserInput() bool {
+	fmt.Print("insert y value here: ")
+	input := bufio.NewScanner(os.Stdin)
+	input.Scan()
+	fmt.Println(input.Text())
+	return input.Text() == "y"
+}
+
+func logInput() {
+	fmt.Println(config.Cfg.TokenOut)
+}
+
+func buy() error {
 	publicKey, prvKey, err := common.GetAccountFromEnv()
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	fmt.Println("Public key:", publicKey.Hex())
@@ -54,7 +121,8 @@ func main() {
 
 	metamaskGasPricer, err := gasprice.NewMetamaskGasPricer(config.Cfg.GasPriceEndpoint, nil)
 	if err != nil {
-		log.Fatal("Fail to create metamask gas pricer:", err)
+		log.Println("Fail to create metamask gas pricer:", err)
+		return err
 	}
 	cacheGasPricer := gasprice.NewCacheGasPricer(metamaskGasPricer, time.Second)
 
@@ -65,13 +133,14 @@ func main() {
 
 	tx, err := buildSwapTx(recipient, amountIn, minDestAmount, cacheGasPricer)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	err = executeTx(ethClient, tx, publicKey, prvKey)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
+	return nil
 }
 
 type BuildTxInput struct {
@@ -112,7 +181,9 @@ func getBuildSwapTx(recipient etherCommon.Address, amountIn *big.Int, minDestAmo
 		"userAddress":   recipient.String(),
 	}
 	var resp BuildTxOutput
-	err := common.MakeGetRequest(API_URL, headers, queryParams, 30*time.Second, &resp)
+
+	apiUrl := config.Cfg.LiquidFunApiUrl
+	err := common.MakeGetRequest(apiUrl, headers, queryParams, 30*time.Second, &resp)
 	if err != nil {
 		return nil, err
 	}

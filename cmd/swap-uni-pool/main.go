@@ -30,7 +30,7 @@ const (
 )
 
 func main() {
-	envFile := "config/.env"
+	envFile := "config/.env.base"
 	err := godotenv.Load(envFile)
 	if err != nil {
 		log.Printf("Error loading .env file from path %s, err %v", envFile, err)
@@ -80,8 +80,9 @@ func makeTrade(ethClient *ethclient.Client, gasPricer gasprice.GasPricer) error 
 		return err
 	}
 
-	amountIn := convert.MustFloatToWei(config.Cfg.AmountIn, 18)
-	minDestAmount := convert.MustFloatToWei(config.Cfg.MinDestAmount, 18)
+	amountIn := convert.MustFloatToWei(config.Cfg.AmountIn, config.Cfg.TokenInDecimals)
+	minDestAmount := convert.MustFloatToWei(config.Cfg.MinDestAmount, config.Cfg.TokenOutDecimals)
+
 	tx, err := trade.BuildTx(ethClient, gasPricer, address, amountIn, minDestAmount)
 	if err != nil {
 		return err
