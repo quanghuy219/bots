@@ -13,9 +13,9 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	etherCommon "github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/ethereum/go-ethereum/core/types"
 )
 
 type HttpRequestError struct {
@@ -67,7 +67,6 @@ func MakeGetRequest(url string, headers map[string]string, query map[string]stri
 	}
 	return json.Unmarshal(bytes, response)
 }
-
 
 func GetAccountFromEnv() (etherCommon.Address, *ecdsa.PrivateKey, error) {
 	privateKeyHex := os.Getenv("PRIVATE_KEY")

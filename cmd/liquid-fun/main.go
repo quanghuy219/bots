@@ -80,13 +80,7 @@ func listenEvent() error {
 			fmt.Println("Token symbol: ", event.Symbol)
 			fmt.Printf("Token address: %s\n", event.Token.String())
 			if waitForUserInput() {
-				config.Cfg.TokenOut = event.Token.String()
-
-				fmt.Println("buy token: ", config.Cfg.TokenOut)
-				err := buy()
-				if err != nil {
-					return err
-				}
+				buy(event.Token.String())
 
 				continue
 			}
@@ -104,7 +98,7 @@ func waitForUserInput() bool {
 	return input.Text() == "y"
 }
 
-func buy() error {
+func buy(tokenOut string) error {
 	publicKey, prvKey, err := common.GetAccountFromEnv()
 	if err != nil {
 		return err
@@ -112,7 +106,9 @@ func buy() error {
 
 	fmt.Println("Public key:", publicKey.Hex())
 
+	tokenIn := etherCommon.HexToAddress(config.Cfg.TokenIn)
 	amountIn := convert.MustFloatToWei(config.Cfg.AmountIn, config.Cfg.TokenInDecimals)
+	tokenOutAddr := etherCommon.HexToAddress(tokenOut)
 	minDestAmount := convert.MustFloatToWei(config.Cfg.MinDestAmount, config.Cfg.TokenOutDecimals)
 
 	metamaskGasPricer, err := gasprice.NewMetamaskGasPricer(config.Cfg.GasPriceEndpoint, nil)
@@ -127,9 +123,15 @@ func buy() error {
 		recipient = etherCommon.HexToAddress(config.Cfg.Recipient)
 	}
 
-	tx, err := buildSwapTx(recipient, amountIn, minDestAmount, cacheGasPricer)
-	if err != nil {
-		return err
+	var tx *types.DynamicFeeTx
+	for {
+		tx, err = buildSwapTx(recipient, tokenIn, amountIn, tokenOutAddr, minDestAmount, cacheGasPricer)
+		if err != nil {
+			log.Println("Fail to build swap tx: ", err)
+			continue
+		}
+
+		break
 	}
 
 	err = executeTx(ethClient, tx, publicKey, prvKey)
@@ -163,15 +165,21 @@ type TxObject struct {
 	Data  hexutil.Bytes       `json:"data"`
 }
 
-func getBuildSwapTx(recipient etherCommon.Address, amountIn *big.Int, minDestAmount *big.Int) (*TxObject, error) {
+func getBuildSwapTx(
+	tokenIn string,
+	amountIn *big.Int,
+	tokenOut string,
+	minDestAmount *big.Int,
+	recipient etherCommon.Address,
+) (*TxObject, error) {
 	headers := map[string]string{
 		"accept": "application/json",
 	}
 
 	queryParams := map[string]string{
 		"chainId":       fmt.Sprintf("%d", config.Cfg.ChainId),
-		"src":           config.Cfg.TokenIn,
-		"dest":          config.Cfg.TokenOut,
+		"src":           tokenIn,
+		"dest":          tokenOut,
 		"srcAmount":     amountIn.String(),
 		"minDestAmount": minDestAmount.String(),
 		"userAddress":   recipient.String(),
@@ -191,8 +199,15 @@ func getBuildSwapTx(recipient etherCommon.Address, amountIn *big.Int, minDestAmo
 	return resp.Rates[0].TxObject, nil
 }
 
-func buildSwapTx(userAddress etherCommon.Address, amountIn *big.Int, minDestAmount *big.Int, gasPricer gasprice.GasPricer) (*types.DynamicFeeTx, error) {
-	txObject, err := getBuildSwapTx(userAddress, amountIn, minDestAmount)
+func buildSwapTx(
+	userAddress etherCommon.Address,
+	tokenIn etherCommon.Address,
+	amountIn *big.Int,
+	tokenOut etherCommon.Address,
+	minDestAmount *big.Int,
+	gasPricer gasprice.GasPricer,
+) (*types.DynamicFeeTx, error) {
+	txObject, err := getBuildSwapTx(tokenIn.String(), amountIn, tokenOut.String(), minDestAmount, userAddress)
 	if err != nil {
 		return nil, err
 	}
