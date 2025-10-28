@@ -51,12 +51,10 @@ func BuildTx(ethClient *ethclient.Client, gasPricer gasprice.GasPricer, fromAddr
 		opts.Value = amountIn
 	}
 
-	maxGasPriceGwei, gasTipCapGwei, err := gasPricer.GasPrice(context.Background())
+	maxGasPrice, gasTipCap, err := getGasPriceWei(gasPricer)
 	if err != nil {
 		log.Printf("Fail to get gas price: error=%v", err)
 	} else {
-		maxGasPrice := convert.MustFloatToWei(maxGasPriceGwei, common.GweiDecimals)
-		gasTipCap := convert.MustFloatToWei(config.Cfg.GasTipMultiplier*gasTipCapGwei, common.GweiDecimals)
 		opts.GasTipCap = gasTipCap
 		opts.GasFeeCap = maxGasPrice
 	}
@@ -88,12 +86,10 @@ func BuildUniversalSwap(ethClient *ethclient.Client, gasPricer gasprice.GasPrice
 		GasLimit: 1, // to skip estimate gas step
 	}
 
-	maxGasPriceGwei, gasTipCapGwei, err := gasPricer.GasPrice(context.Background())
+	maxGasPrice, gasTipCap, err := getGasPriceWei(gasPricer)
 	if err != nil {
 		log.Printf("Fail to get gas price: error=%v", err)
 	} else {
-		maxGasPrice := convert.MustFloatToWei(maxGasPriceGwei, common.GweiDecimals)
-		gasTipCap := convert.MustFloatToWei(config.Cfg.GasTipMultiplier*gasTipCapGwei, common.GweiDecimals)
 		opts.GasTipCap = gasTipCap
 		opts.GasFeeCap = maxGasPrice
 	}
@@ -145,4 +141,21 @@ func BuildUniversalSwap(ethClient *ethclient.Client, gasPricer gasprice.GasPrice
 		inputs = append(inputs, bytes)
 	}
 	return swapRouter.Execute(opts, commands, inputs)
+}
+
+func getGasPriceWei(gasPricer gasprice.GasPricer) (maxGasPrice *big.Int, gasTipCap *big.Int, err error) {
+	maxGasPriceGwei, gasTipCapGwei, err := gasPricer.GasPrice(context.Background())
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if config.Cfg.GasTipMultiplier > 1 {
+		maxGasPriceGwei = maxGasPriceGwei * config.Cfg.GasTipMultiplier
+		gasTipCapGwei = gasTipCapGwei * config.Cfg.GasTipMultiplier
+	}
+
+	maxGasPrice = convert.MustFloatToWei(maxGasPriceGwei, common.GweiDecimals)
+	gasTipCap = convert.MustFloatToWei(gasTipCapGwei, common.GweiDecimals)
+
+	return maxGasPrice, gasTipCap, nil
 }
